@@ -1,5 +1,5 @@
 """The Ingenium integration."""
-import voluptuous as vol  # Importación crítica faltante
+import voluptuous as vol
 import logging
 import asyncio
 
@@ -13,11 +13,10 @@ from homeassistant.helpers.typing import ConfigType
 
 from ingeniumpy import IngeniumAPI
 from ingeniumpy.objects import IngObject
-from .const import DOMAIN, PLATFORMS  # Asegúrate de tener PLATFORMS en const.py
+from .const import DOMAIN, PLATFORMS
 
 _LOGGER = logging.getLogger(__name__)
 
-# Esquema de configuración YAML (requiere voluptuous)
 CONFIG_SCHEMA = vol.Schema(
     {
         DOMAIN: vol.Schema(
@@ -33,39 +32,41 @@ CONFIG_SCHEMA = vol.Schema(
 )
 
 async def async_setup(hass: HomeAssistant, config: ConfigType):
-    """Configuración inicial para YAML (opcional)."""
+    """Set up the Ingenium component."""
     hass.data.setdefault(DOMAIN, {})
     return True
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
-    """Configuración desde Config Flow."""
+    """Set up Ingenium from a config entry."""
     api = IngeniumAPI(hass)
 
-    # Configura conexión
     if CONF_USERNAME in entry.data and CONF_PASSWORD in entry.data:
         api.remote(entry.data[CONF_USERNAME], entry.data[CONF_PASSWORD])
     elif CONF_HOST in entry.data:
         api.local(entry.data[CONF_HOST])
 
-    # Carga dispositivos
     data_dir = hass.config.path(STORAGE_DIR, DOMAIN)
-    
+
     def onchange(x: IngObject):
         async_dispatcher_send(hass, f"update_{DOMAIN}_{x.address}")
-    
-    await api.load(debug=False, data_dir=data_dir, onchange=onchange)
+
+    # Ejecutar en hilo separado para evitar bloqueo
+    await hass.async_add_executor_job(
+        api.load,
+        False,
+        data_dir,
+        onchange
+    )
+
     hass.data[DOMAIN][entry.entry_id] = api
 
-    # Carga todas las plataformas (método actualizado)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
-
     return True
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry):
-    """Descarga la integración."""
+    """Unload a config entry."""
     api: IngeniumAPI = hass.data[DOMAIN][entry.entry_id]
-    
-    # Descarga todas las plataformas
+
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     
     if unload_ok:
