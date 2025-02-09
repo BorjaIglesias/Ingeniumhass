@@ -32,12 +32,10 @@ CONFIG_SCHEMA = vol.Schema(
 )
 
 async def async_setup(hass: HomeAssistant, config: ConfigType):
-    """Set up the Ingenium component."""
     hass.data.setdefault(DOMAIN, {})
     return True
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
-    """Set up Ingenium from a config entry."""
     api = IngeniumAPI(hass)
 
     if CONF_USERNAME in entry.data and CONF_PASSWORD in entry.data:
@@ -51,22 +49,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         async_dispatcher_send(hass, f"update_{DOMAIN}_{x.address}")
 
     # Ejecutar en hilo separado para evitar bloqueo
-    await hass.async_add_executor_job(
-        api.load,
-        False,
-        data_dir,
-        onchange
-    )
+    await hass.async_add_executor_job(api.load, False, data_dir, onchange)
 
     hass.data[DOMAIN][entry.entry_id] = api
-
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry):
-    """Unload a config entry."""
     api: IngeniumAPI = hass.data[DOMAIN][entry.entry_id]
-
+    
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     
     if unload_ok:

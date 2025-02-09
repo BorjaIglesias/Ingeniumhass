@@ -1,7 +1,5 @@
 import logging
 
-from homeassistant.helpers.dispatcher import async_dispatcher_connect
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.components.sensor import (
     SensorEntity,
     SensorDeviceClass,
@@ -11,15 +9,17 @@ from homeassistant.const import (
     UnitOfPower,
     UnitOfTemperature,
     CONCENTRATION_PARTS_PER_MILLION,
-    PERCENTAGE,
     SIGNAL_STRENGTH_DECIBELS,
+    PERCENTAGE,
     UnitOfElectricCurrent,
     UnitOfElectricPotential,
     UnitOfApparentPower,
 )
-
+from homeassistant.helpers.dispatcher import async_dispatcher_connect
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+
 from ingeniumpy import IngeniumAPI
 from ingeniumpy.objects import (
     IngMeterBus,
@@ -37,32 +37,18 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Set up all sensor platforms."""
     api: IngeniumAPI = hass.data[DOMAIN][entry.entry_id]
     
     entities = []
-    
-    # MeterBus sensors
     entities.extend(MeterBusSensor(obj, channel) for obj, channel in api.get_meterbuses())
-    
-    # SIF multisensors
     entities.extend(SifSensor(obj, mode) for obj, mode in api.get_sifs())
-    
-    # Air quality sensors
     entities.extend(AirSensor(obj, mode) for obj, mode in api.get_air_sensors())
-    
-    # Noise sensors
     entities.extend(NoiseSensor(obj) for obj in api.get_noise_sensors())
-    
-    # Socket sensors (I, V, PA, P)
-    for mode in range(4):
-        entities.extend(SockSensor(obj, mode) for obj in api.get_switches() if obj.is_sock)
+    entities.extend(SockSensor(obj, mode) for mode in range(4) for obj in api.get_switches() if obj.is_sock)
     
     async_add_entities(entities)
 
 class MeterBusSensor(SensorEntity):
-    """Representation of a MeterBus power sensor."""
-    
     _attr_has_entity_name = True
     _attr_should_poll = False
     _attr_device_class = SensorDeviceClass.POWER
@@ -94,8 +80,6 @@ class MeterBusSensor(SensorEntity):
         return self._obj.get_available(self._channel)
 
 class SifSensor(SensorEntity):
-    """Representation of a SIF multisensor."""
-    
     _attr_has_entity_name = True
     _attr_should_poll = False
     _attr_state_class = SensorStateClass.MEASUREMENT
@@ -105,22 +89,21 @@ class SifSensor(SensorEntity):
         self._mode = mode
         modes_names = ["T", "S", "P", "L", "H"]
         
-        # Configuración específica por modo
+        self._attr_name = modes_names[mode]
+        self._attr_unique_id = f"{DOMAIN}.{obj.component.id}_{modes_names[mode]}"
+        self._attr_device_info = obj.get_info()
+
         if mode == 0:
             self._attr_device_class = SensorDeviceClass.TEMPERATURE
             self._attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
         elif mode == 2:
-            self._attr_device_class = SensorDeviceClass.OCCUPANCY
+            self._attr_device_class = "presence"
         elif mode == 3:
             self._attr_device_class = SensorDeviceClass.ILLUMINANCE
             self._attr_native_unit_of_measurement = "lx"
         elif mode == 4:
             self._attr_device_class = SensorDeviceClass.HUMIDITY
             self._attr_native_unit_of_measurement = PERCENTAGE
-
-        self._attr_name = modes_names[mode]
-        self._attr_unique_id = f"{DOMAIN}.{obj.component.id}_{modes_names[mode]}"
-        self._attr_device_info = obj.get_info()
 
     async def async_added_to_hass(self) -> None:
         self.async_on_remove(
@@ -144,8 +127,6 @@ class SifSensor(SensorEntity):
         return {"bat_baja": True} if self._obj.bat_baja else {}
 
 class AirSensor(SensorEntity):
-    """Representation of an air quality sensor."""
-    
     _attr_has_entity_name = True
     _attr_should_poll = False
     _attr_state_class = SensorStateClass.MEASUREMENT
@@ -186,13 +167,9 @@ class AirSensor(SensorEntity):
 
     @property
     def extra_state_attributes(self):
-        if self._mode in (0, 1):
-            return {"threshold": self._obj.get_threshold(self._mode)}
-        return {}
+        return {"threshold": self._obj.get_threshold(self._mode)} if self._mode in (0, 1) else {}
 
 class NoiseSensor(SensorEntity):
-    """Representation of a noise level sensor."""
-    
     _attr_has_entity_name = True
     _attr_should_poll = False
     _attr_device_class = SensorDeviceClass.SIGNAL_STRENGTH
@@ -223,16 +200,12 @@ class NoiseSensor(SensorEntity):
 
     @property
     def extra_state_attributes(self):
-        attrs = {}
-        if self._obj.max != 255:
-            attrs["max"] = self._obj.max
-        if self._obj.min != 255:
-            attrs["min"] = self._obj.min
-        return attrs
+        return {
+            "max": self._obj.max,
+            "min": self._obj.min,
+        } if self._obj.max != 255 or self._obj.min != 255 else {}
 
 class SockSensor(SensorEntity):
-    """Representation of a smart socket sensor."""
-    
     _attr_has_entity_name = True
     _attr_should_poll = False
     _attr_state_class = SensorStateClass.MEASUREMENT
@@ -270,7 +243,7 @@ class SockSensor(SensorEntity):
             1: self._obj.voltage,
             2: self._obj.active_power,
             3: self._obj.consumption,
-        }.get(self._mode)
+        }[self._mode]
 
     @property
     def available(self) -> bool:
