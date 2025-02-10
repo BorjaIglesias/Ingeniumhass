@@ -1,9 +1,9 @@
 {
   "config": {
-    "title": "IngeniumAssistant",
+    "title": "Ingeniumhass",
     "step": {
       "user": {
-        "title": "Connect to IngeniumAssistant",
+        "title": "Connect to Ingeniumhass",
         "data": {
           "host": "Host"
         }
