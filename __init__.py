@@ -53,9 +53,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         _LOGGER.debug("Cambio detectado en: %s", x.address)
         async_dispatcher_send(hass, f"update_{DOMAIN}_{x.address}")
 
-    # Ejecutar api.load en un hilo separado para evitar bloqueos
-    await hass.async_add_executor_job(api.load, False, data_dir, onchange)
-    _LOGGER.debug("Dispositivos cargados: %s", api.devices)
+    # CORRECCIÓN: Ejecutar directamente await en api.load(), porque es una corutina async
+    await api.load(debug=True, data_dir=data_dir, onchange=onchange)
+
+    # Depuración: Verificar qué dispositivos detecta la API
+    _LOGGER.debug("Termostatos detectados: %s", api.get_climates())
+    _LOGGER.debug("Luces detectadas: %s", api.get_lights())
+    _LOGGER.debug("Interruptores detectados: %s", api.get_switches())
+    _LOGGER.debug("Persianas detectadas: %s", api.get_covers())
+    _LOGGER.debug("Sensores detectados: %s", api.get_meterbuses())
 
     hass.data[DOMAIN][entry.entry_id] = api
     await hass.config_entries.async_setup_platforms(entry, PLATFORMS)
