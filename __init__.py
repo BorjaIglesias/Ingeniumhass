@@ -36,23 +36,29 @@ async def async_setup(hass: HomeAssistant, config: ConfigType):
     return True
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
+    _LOGGER.debug("Iniciando configuración de IngeniumAssistant")
+
     api = IngeniumAPI(hass)
 
     if CONF_USERNAME in entry.data and CONF_PASSWORD in entry.data:
+        _LOGGER.debug("Autenticando en modo remoto con usuario: %s", entry.data[CONF_USERNAME])
         api.remote(entry.data[CONF_USERNAME], entry.data[CONF_PASSWORD])
     elif CONF_HOST in entry.data:
+        _LOGGER.debug("Conectando en modo local a host: %s", entry.data[CONF_HOST])
         api.local(entry.data[CONF_HOST])
 
     data_dir = hass.config.path(STORAGE_DIR, DOMAIN)
 
     def onchange(x: IngObject):
+        _LOGGER.debug("Cambio detectado en: %s", x.address)
         async_dispatcher_send(hass, f"update_{DOMAIN}_{x.address}")
 
-    # Ejecutar en hilo separado para evitar bloqueo
-    await hass.async_add_executor_job(api.load, False, data_dir, onchange)
+    await api.load(debug=True, data_dir=data_dir, onchange=onchange)
+    _LOGGER.debug("Dispositivos cargados: %s", api.devices)
 
     hass.data[DOMAIN][entry.entry_id] = api
-    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    await hass.config_entries.async_setup_platforms(entry, PLATFORMS)
+
     return True
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry):

@@ -25,7 +25,11 @@ async def async_setup_entry(
 ) -> None:
     """Set up climate platform."""
     api: IngeniumAPI = hass.data[DOMAIN][entry.entry_id]
-    async_add_entities([IngClimate(o) for o in api.get_climates()])
+    
+    climates = api.get_climates()
+    _LOGGER.debug("Termostatos detectados: %s", climates)
+    
+    async_add_entities([IngClimate(o) for o in climates])
 
 class IngClimate(ClimateEntity):
     _attr_has_entity_name = True
