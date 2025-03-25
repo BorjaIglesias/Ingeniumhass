@@ -1,11 +1,13 @@
 {
   "config": {
-    "title": "Ingeniumhass",
+    "title": "Ingenium",
     "step": {
       "user": {
-        "title": "Connect to Ingeniumhass",
+        "title": "Connect to the device",
         "data": {
-          "host": "Host"
+          "host": "Host",
+          "username": "Username",
+          "password": "Password"
         }
       }
     },

@@ -1,3 +1,3 @@
-"""Constants for IngeniumAssistant integration."""
-DOMAIN = "ingeniumahass"
-PLATFORMS = ["sensor", "light", "switch", "cover", "climate"]
+"""Constants for the Ingenium integration."""
+
+DOMAIN = "ingenium"
